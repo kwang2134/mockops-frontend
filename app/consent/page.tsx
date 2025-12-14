@@ -37,25 +37,20 @@ export default function ConsentPage() {
     };
 
     useEffect(() => {
-        const refresh = async () => {
-            const tokenResponse = await refreshToken();
-            setAccessToken(tokenResponse.accessToken);
-        };
-        refresh();
-
         const token = localStorage.getItem('accessToken');
-        if (token) {
-            const payload = decodeJwtPayload(token);
+        if (!token) return;
 
-            // 백엔드 JWT 로직을 참고하여 두 클레임이 모두 존재하는지 확인
-            if (payload && payload.tos_agreed_version && payload.pp_agreed_version) {
-                console.log("Existing agreements found in token payload. Redirecting to /projects.");
-                // replace를 사용하여 뒤로가기 버튼으로 이 페이지에 다시 오는 것을 방지
-                router.replace('/projects');
-                return; // 리다이렉트 후 아래 토큰 갱신 로직 실행 방지
-            }
+        const payload = decodeJwtPayload(token);
+
+        if (
+            payload &&
+            payload.tos_agreed_version &&
+            payload.pp_agreed_version
+        ) {
+            console.log('Already agreed. Redirecting to /projects');
+            router.replace('/projects');
         }
-    }, []);
+    }, [router]);
 
 
   const handleSubmit = async () => {
@@ -66,6 +61,10 @@ export default function ConsentPage() {
 
     try {
       setSubmitting(true);
+
+      const firstTokenResponse = await refreshToken();
+      setAccessToken(firstTokenResponse.accessToken);
+
       await submitAgreements({
         agreements: [
           {
@@ -77,12 +76,12 @@ export default function ConsentPage() {
         ],
       });
 
-      localStorage.removeItem('accessToken');
       alert('약관 동의가 완료되었습니다.');
       localStorage.removeItem('accessToken');
-      const tokenResponse = await refreshToken();
-      setAccessToken(tokenResponse.accessToken);
-      router.push('/projects');
+
+      const secondTokenResponse  = await refreshToken();
+      setAccessToken(secondTokenResponse .accessToken);
+      router.replace('/projects');
     } catch (error) {
       console.error('Failed to submit agreements:', error);
       alert('약관 동의 처리에 실패했습니다. 다시 시도해주세요.');
