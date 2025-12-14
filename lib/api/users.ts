@@ -19,3 +19,8 @@ export const updateNickname = async (nickname: string): Promise<UserProfile> => 
   );
   return response.data.result;
 };
+
+// 회원 탈퇴
+export const deleteUser = async (): Promise<void> => {
+  await api.delete('/api/v1/users/me');
+};

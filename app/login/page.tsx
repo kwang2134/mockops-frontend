@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { initiateOAuth2Login } from '@/lib/auth';
+import Footer from '@/components/Footer';
 
 function LoginContent() {
   const router = useRouter();
@@ -36,8 +37,9 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="flex-1 flex items-center justify-center py-12">
+        <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
         <div className="text-center">
           <div className="flex justify-center mb-4">
             {/* PNG + 배경 버전 */}
@@ -99,7 +101,9 @@ function LoginContent() {
         <div className="text-center text-sm text-gray-500">
           <p>계정이 없으시다면 OAuth 로그인 시 자동으로 생성됩니다.</p>
         </div>
+        </div>
       </div>
+      <Footer />
     </div>
   );
 }

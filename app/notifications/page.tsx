@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import { getNotifications, markNotificationAsRead, deleteNotification } from '@/lib/api/notifications';
 import type { Notification } from '@/lib/api/notifications';
 import { formatDateTimeKST } from '@/lib/utils/date';
+import { getNotificationTypeLabel } from '@/lib/utils/notification';
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -76,20 +78,21 @@ export default function NotificationsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         <Header />
-        <div className="pt-24 flex items-center justify-center">
+        <div className="flex-1 pt-24 flex items-center justify-center">
           <div className="text-lg text-gray-600">로딩 중...</div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
-      <main className="pt-24 pb-16">
+      <main className="flex-1 pt-24 pb-16">
         <div className="max-w-4xl mx-auto px-6">
           {/* 헤더 */}
           <div className="mb-8">
@@ -145,10 +148,20 @@ export default function NotificationsPage() {
                               ? 'bg-red-100 text-red-800'
                               : notification.type === 'MEMBER_INVITATION_RECEIVED'
                               ? 'bg-green-100 text-green-800'
+                              : notification.type === 'SERVER_STATUS_CHANGED'
+                              ? 'bg-blue-100 text-blue-800'
+                              : notification.type === 'MEMBER_INVITATION_ACCEPTED'
+                              ? 'bg-purple-100 text-purple-800'
+                              : notification.type === 'MOCK_BULK_SUCCESS'
+                              ? 'bg-green-100 text-green-800'
+                              : notification.type === 'MOCK_BULK_FAILURE'
+                              ? 'bg-orange-100 text-orange-800'
+                              : notification.type === 'SYSTEM_ANNOUNCEMENT'
+                              ? 'bg-indigo-100 text-indigo-800'
                               : 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {notification.type.replace(/_/g, ' ')}
+                          {getNotificationTypeLabel(notification.type)}
                         </span>
                       </div>
                       <p className="text-gray-700 mb-2">{notification.message}</p>
@@ -178,6 +191,7 @@ export default function NotificationsPage() {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

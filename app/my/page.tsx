@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
-import { updateNickname } from '@/lib/api/users';
+import { updateNickname, deleteUser } from '@/lib/api/users';
 
 export default function MyPage() {
   const router = useRouter();
@@ -77,10 +78,33 @@ export default function MyPage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmMessage = '정말로 회원 탈퇴하시겠습니까?\n\n탈퇴하시면 모든 데이터가 삭제되며 복구할 수 없습니다.';
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    const finalConfirm = '정말로 탈퇴하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.';
+
+    if (!confirm(finalConfirm)) {
+      return;
+    }
+
+    try {
+      await deleteUser();
+      alert('회원 탈퇴가 완료되었습니다.');
+      router.push('/');
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      alert('회원 탈퇴에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
-      <div className="min-h-screen bg-gray-50 pt-16">
+      <div className="flex-1 pt-16">
         <div className="max-w-4xl mx-auto px-6 py-12">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
@@ -180,8 +204,27 @@ export default function MyPage() {
               ← 뒤로 가기
             </button>
           </div>
+
+          {/* 회원 탈퇴 섹션 */}
+          <div className="mt-12 pt-8 border-t border-gray-200">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+              <h3 className="text-lg font-bold text-red-900 mb-2">회원 탈퇴</h3>
+              <p className="text-sm text-red-700 mb-4">
+                회원 탈퇴 시 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
+                <br />
+                신중하게 결정해주세요.
+              </p>
+              <button
+                onClick={handleDeleteAccount}
+                className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all"
+              >
+                회원 탈퇴
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </>
+      <Footer />
+    </div>
   );
 }

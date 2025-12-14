@@ -39,6 +39,7 @@ import type {
 } from '@/types/server';
 import type { HealthCheckFailureLog } from '@/lib/api/notifications';
 import { formatDateTimeKST } from '@/lib/utils/date';
+import { getNotificationTypeLabel } from '@/lib/utils/notification';
 
 type Tab = 'mock-apis' | 'health-check';
 
@@ -425,9 +426,12 @@ export default function ServerDetailPage() {
                                   summary.type === 'SERVER_STATUS_CHANGED' ? 'bg-blue-100 text-blue-800' :
                                   summary.type === 'MOCK_BULK_SUCCESS' ? 'bg-green-100 text-green-800' :
                                   summary.type === 'MOCK_BULK_FAILURE' ? 'bg-orange-100 text-orange-800' :
+                                  summary.type === 'MEMBER_INVITATION_RECEIVED' ? 'bg-green-100 text-green-800' :
+                                  summary.type === 'MEMBER_INVITATION_ACCEPTED' ? 'bg-purple-100 text-purple-800' :
+                                  summary.type === 'SYSTEM_ANNOUNCEMENT' ? 'bg-indigo-100 text-indigo-800' :
                                   'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {summary.type}
+                                  {getNotificationTypeLabel(summary.type)}
                                 </span>
                                 <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-bold">
                                   {summary.unreadCount}건

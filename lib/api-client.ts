@@ -89,6 +89,19 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // 403 CONSENT_REQUIRED 에러 처리
+    if (error.response?.status === 403) {
+      const errorData = error.response.data as any;
+      if (errorData?.error?.errorCode === 'CONSENT_REQUIRED' || errorData?.errorCode === 'CONSENT_REQUIRED' || errorData?.code === 'CONSENT_REQUIRED') {
+        // 현재 페이지가 /consent가 아니면 강제 이동
+        if (typeof window !== 'undefined' && window.location.pathname !== '/consent') {
+            sessionStorage.setItem('isRedirectingToConsent', 'true');
+          window.location.href = '/consent';
+        }
+        return Promise.reject(error);
+      }
+    }
+
     // 401 에러이고 재시도하지 않은 경우
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {

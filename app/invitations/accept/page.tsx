@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { acceptEmailInvitation } from '@/lib/api/invitations';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 function AcceptInvitationContent() {
   const router = useRouter();
@@ -75,10 +76,10 @@ function AcceptInvitationContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
-      <main className="pt-24 pb-16">
+      <main className="flex-1 pt-24 pb-16">
         <div className="max-w-2xl mx-auto px-6">
           <div className="bg-white rounded-2xl border border-gray-200 p-12 shadow-lg">
             {status === 'loading' && (
@@ -178,6 +179,7 @@ function AcceptInvitationContent() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
@@ -186,9 +188,9 @@ export default function AcceptInvitationPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
           <Header />
-          <main className="pt-24 pb-16">
+          <main className="flex-1 pt-24 pb-16">
             <div className="max-w-2xl mx-auto px-6">
               <div className="bg-white rounded-2xl border border-gray-200 p-12 shadow-lg">
                 <div className="text-center">
@@ -200,6 +202,7 @@ export default function AcceptInvitationPage() {
               </div>
             </div>
           </main>
+          <Footer />
         </div>
       }
     >

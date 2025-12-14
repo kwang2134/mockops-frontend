@@ -849,6 +849,7 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
   const [showSecret, setShowSecret] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [secretInput, setSecretInput] = useState('');
+  const [showUsageGuide, setShowUsageGuide] = useState(false);
 
   // OWNER만 Secret 관리 가능, DEVELOPER 이상 JWT 토큰 생성 가능
   const canManageSecret = userRole === 'OWNER';
@@ -916,6 +917,22 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
 
   return (
     <div className="space-y-6">
+      {/* 웹훅 사용 가이드 버튼 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-blue-900">Webhook 사용 방법이 궁금하신가요?</h3>
+            <p className="text-xs text-blue-700 mt-1">배포 시 서버 상태를 자동으로 업데이트하는 방법을 확인하세요.</p>
+          </div>
+          <button
+            onClick={() => setShowUsageGuide(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all"
+          >
+            사용 방법 보기
+          </button>
+        </div>
+      </div>
+
       {/* Secret 정보 - OWNER만 표시 */}
       {canManageSecret && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -993,6 +1010,135 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 웹훅 사용 가이드 모달 */}
+      {showUsageGuide && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowUsageGuide(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Webhook 사용 방법</h2>
+              <button
+                onClick={() => setShowUsageGuide(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* 프로젝트 ID */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">현재 프로젝트 ID</label>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <code className="text-sm font-mono text-gray-900">{projectId}</code>
+                </div>
+              </div>
+
+              {/* 엔드포인트 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Webhook 엔드포인트</label>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <code className="text-sm font-mono text-gray-900">
+                    POST https://api.mockops.cloud/api/webhook/deploy/{projectId}
+                  </code>
+                </div>
+              </div>
+
+              {/* 인증 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">인증 헤더</label>
+                <p className="text-sm text-gray-600 mb-2">
+                  생성한 JWT 토큰을 Authorization 헤더에 포함시켜야 합니다.
+                </p>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <code className="text-sm font-mono text-gray-900">
+                    Authorization: Bearer {'<JWT_TOKEN>'}
+                  </code>
+                </div>
+              </div>
+
+              {/* 요청 바디 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">요청 바디 (JSON)</label>
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-semibold text-red-600">필수 필드</span>: projectName, domainServerName, status<br/>
+                  <span className="font-semibold text-blue-600">선택 필드</span>: healthCheckUrl, healthCheckInterval
+                </p>
+                <div className="p-4 bg-gray-900 rounded-lg overflow-x-auto">
+                  <pre className="text-sm font-mono text-green-400">
+{`{
+  "projectName": "내 프로젝트 이름",
+  "domainServerName": "서버 이름 (slug 아님!)",
+  "status": "DEPLOYED",
+  "healthCheckUrl": "https://api.example.com/health",
+  "healthCheckInterval": "10m"
+}`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* 필드 설명 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900">필드 설명</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="font-semibold text-red-900 mb-1">projectName <span className="text-red-600">(필수)</span></p>
+                    <p className="text-gray-700">웹훅을 보낼 프로젝트의 이름</p>
+                  </div>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="font-semibold text-red-900 mb-1">domainServerName <span className="text-red-600">(필수)</span></p>
+                    <p className="text-gray-700">상태를 변경할 도메인 서버의 이름 (slug가 아닌 실제 이름)</p>
+                  </div>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="font-semibold text-red-900 mb-1">status <span className="text-red-600">(필수)</span></p>
+                    <p className="text-gray-700 mb-2">변경할 서버 상태. 다음 중 하나를 선택:</p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">DEPLOYED</span>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">MOCKING</span>
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">PENDING</span>
+                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">ERROR</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="font-semibold text-blue-900 mb-1">healthCheckUrl <span className="text-blue-600">(선택)</span></p>
+                    <p className="text-gray-700">헬스 체크를 수행할 URL (예: https://api.example.com/health)</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="font-semibold text-blue-900 mb-1">healthCheckInterval <span className="text-blue-600">(선택)</span></p>
+                    <p className="text-gray-700">헬스 체크 간격 (예: 5m, 10m, 30m, 1h)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 사용 예시 */}
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-yellow-900 mb-2">💡 사용 예시</h4>
+                <p className="text-sm text-gray-700">
+                  배포 파이프라인(GitHub Actions, Jenkins 등)에서 배포 완료 후 이 Webhook을 호출하여
+                  서버 상태를 자동으로 DEPLOYED로 변경할 수 있습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowUsageGuide(false)}
+                className="px-6 py-3 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

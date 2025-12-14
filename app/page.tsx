@@ -1,14 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
+import ImageCarousel from '@/components/ImageCarousel';
 
 export default function LandingPage() {
   const router = useRouter();
   const { isLoggedIn, loading: authLoading } = useAuth({ skipInitialAuth: true });
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
+  const [showHeader, setShowHeader] = useState(false);
+  const [snapContainer, setSnapContainer] = useState<HTMLElement | null>(null);
 
   // 로그인 상태 확인 및 리다이렉트
   useEffect(() => {
@@ -25,6 +29,32 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // 스크롤 감지하여 헤더 표시/숨김
+  useEffect(() => {
+    if (!snapContainer) {
+      console.log('snap-container not set yet');
+      return;
+    }
+
+    console.log('snap-container found, setting up scroll listener');
+
+    const handleScroll = () => {
+      const scrollPosition = snapContainer.scrollTop;
+      // 첫 번째 섹션 높이(100vh)의 50%를 넘어가면 헤더 표시
+      const threshold = window.innerHeight * 0.5;
+      const shouldShow = scrollPosition > threshold;
+
+      console.log('Scroll position:', scrollPosition, 'Threshold:', threshold, 'Should show header:', shouldShow);
+      setShowHeader(shouldShow);
+    };
+
+    // 초기 스크롤 위치 확인
+    handleScroll();
+
+    snapContainer.addEventListener('scroll', handleScroll);
+    return () => snapContainer.removeEventListener('scroll', handleScroll);
+  }, [snapContainer]);
+
   const handleLogin = () => {
     router.push('/login');
   };
@@ -35,50 +65,81 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="scroll-container">
-      {/* 고정 헤더 */}
-      <Header skipInitialAuth={true} />
+    <>
+      {/* 고정 헤더 - 스크롤 시에만 렌더링 */}
+      {showHeader && (
+        <div className="fixed top-0 left-0 right-0 z-50 animate-slide-down">
+          <Header skipInitialAuth={true} />
+        </div>
+      )}
 
       {/* 스크롤 스냅 컨테이너 */}
-      <main className="snap-container">
-        {/* 섹션 1: Hero Section */}
-        <section className="snap-section relative overflow-hidden bg-black">
-          {/* 배경 이미지 전환 효과 */}
+      <main ref={setSnapContainer} className="snap-container">
+        {/* 섹션 0: 순수 이미지만 (헤더 없음) */}
+        <section className="snap-section first-section relative overflow-hidden bg-black">
+          {/* 전체 화면 이미지 전환 */}
           <div className="absolute inset-0">
-            {[0, 1, 2].map((index) => (
+            {['/images/landing/main1.png', '/images/landing/main2.png', '/images/landing/main3.png'].map((image, index) => (
               <div
                 key={index}
                 className={`absolute inset-0 transition-opacity duration-1000 ${
-                  currentHeroImage === index ? 'opacity-30' : 'opacity-0'
+                  currentHeroImage === index ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                {/* IMAGE PLACEHOLDER: Hero Background ${index + 1} */}
-                {/* Recommended size: 1920x1080px (16:9) or 2560x1080px (21:9) */}
-                {/* High quality abstract/tech background images */}
-                <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                  <span className="text-gray-600 text-sm">
-                    Hero Background {index + 1}<br />
-                    1920x1080px (16:9)
-                  </span>
-                </div>
+                <Image
+                  src={image}
+                  alt={`MockOps ${index + 1}`}
+                  fill
+                  className="object-cover object-top"
+                  priority={index === 0}
+                />
               </div>
             ))}
           </div>
 
-          {/* 컨텐츠 */}
-          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white px-6">
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-center mb-6 leading-tight max-w-5xl">
+          {/* Scroll Down 인디케이터 */}
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+            <svg className="w-8 h-8 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </div>
+        </section>
+
+        {/*
+        섹션 1: Hero Section (텍스트 포함) - 주석 처리
+        <section className="snap-section relative overflow-hidden bg-black hero-text-section">
+          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black z-0"></div>
+
+          <div className="absolute inset-0 z-0">
+            {['/images/landing/main1.png', '/images/landing/main2.png', '/images/landing/main3.png'].map((image, index) => (
+              <div
+                key={`hero-${index}`}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  currentHeroImage === index ? 'opacity-10' : 'opacity-0'
+                }`}
+              >
+                <Image
+                  src={image}
+                  alt={`MockOps Hero Background ${index + 1}`}
+                  fill
+                  className="object-cover object-top"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white px-6 pt-16 hero-content">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-center mb-6 leading-tight max-w-5xl animate-fade-in-up">
               당신의 프로젝트를 위한
               <br />
               <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
                 완벽한 Mocking 매니저
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-300 text-center max-w-2xl mb-12 font-light tracking-wide">
+            <p className="text-lg md:text-xl text-gray-300 text-center max-w-2xl mb-12 font-light tracking-wide animate-fade-in-up animation-delay-200">
               Mock API 서버 관리 플랫폼
             </p>
 
-            {/* Scroll Down 인디케이터 */}
             <div className="absolute bottom-12 animate-bounce">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -86,6 +147,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+        */}
 
         {/* 섹션 2: 프로젝트 관리 - 텍스트 좌 / 이미지 우 */}
         <section className="snap-section bg-white">
@@ -147,14 +209,14 @@ export default function LandingPage() {
 
               {/* 우측: 이미지 (60%) */}
               <div className="lg:col-span-3">
-                {/* IMAGE PLACEHOLDER 1: Project Dashboard */}
-                {/* Recommended size: 1200x800px (3:2) */}
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 aspect-[3/2] flex items-center justify-center rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                  <div className="text-center text-gray-400">
-                    <div className="text-base font-semibold mb-2">프로젝트 대시보드 화면</div>
-                    <div className="text-sm font-mono">1200x800px (3:2)</div>
-                  </div>
-                </div>
+                <ImageCarousel
+                  images={[
+                    '/images/landing/1.1 project_list.png',
+                    '/images/landing/1.2 member_list.png',
+                    '/images/landing/1.3 invitation_list.png',
+                  ]}
+                  alt="프로젝트 관리"
+                />
               </div>
             </div>
           </div>
@@ -166,14 +228,15 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 w-full items-center">
               {/* 좌측: 이미지 (60%) */}
               <div className="lg:col-span-3 order-2 lg:order-1">
-                {/* IMAGE PLACEHOLDER 2: Mock API Editor */}
-                {/* Recommended size: 1200x800px (3:2) */}
-                <div className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 aspect-[3/2] flex items-center justify-center rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                  <div className="text-center text-gray-400">
-                    <div className="text-base font-semibold mb-2">Mock API 설정 & JSON 에디터</div>
-                    <div className="text-sm font-mono">1200x800px (3:2)</div>
-                  </div>
-                </div>
+                <ImageCarousel
+                  images={[
+                    '/images/landing/2.1 mock_list.png',
+                    '/images/landing/2.2 add_mock.png',
+                    '/images/landing/2.3 mock_detail.png',
+                    '/images/landing/2.4 swagger.png',
+                  ]}
+                  alt="Mock API 관리"
+                />
               </div>
 
               {/* 우측: 텍스트 (40%) */}
@@ -293,15 +356,13 @@ export default function LandingPage() {
 
               {/* 우측: 이미지 (60%) */}
               <div className="lg:col-span-3">
-                {/* IMAGE PLACEHOLDER 3: Health Check Dashboard */}
-                {/* Recommended size: 1200x800px (3:2) */}
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 aspect-[3/2] flex items-center justify-center rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                  <div className="text-center text-gray-400">
-                    <div className="text-base font-semibold mb-2">헬스 체크 대시보드</div>
-                    <div className="text-sm font-mono">1200x800px (3:2)</div>
-                    <div className="text-xs mt-1">(서버 상태 카드 + 로그)</div>
-                  </div>
-                </div>
+                <ImageCarousel
+                  images={[
+                    '/images/landing/3.1 server_list.png',
+                    '/images/landing/3.2 health_check.png',
+                  ]}
+                  alt="헬스 체크"
+                />
               </div>
             </div>
           </div>
@@ -313,14 +374,15 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 w-full items-center">
               {/* 좌측: 이미지 (60%) */}
               <div className="lg:col-span-3 order-2 lg:order-1">
-                {/* IMAGE PLACEHOLDER 4: Webhook & Slack Integration */}
-                {/* Recommended size: 1200x800px (3:2) */}
-                <div className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 aspect-[3/2] flex items-center justify-center rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                  <div className="text-center text-gray-400">
-                    <div className="text-base font-semibold mb-2">웹훅 설정 & 슬랙 알림</div>
-                    <div className="text-sm font-mono">1200x800px (3:2)</div>
-                  </div>
-                </div>
+                <ImageCarousel
+                  images={[
+                    '/images/landing/4.1 webhook_readme.png',
+                    '/images/landing/4.2 webhook_secret.png',
+                    '/images/landing/4.3 webhook_jwt.png',
+                    '/images/landing/4.4 webhook_notification.png',
+                  ]}
+                  alt="웹훅 & 알림"
+                />
               </div>
 
               {/* 우측: 텍스트 (40%) */}
@@ -381,8 +443,30 @@ export default function LandingPage() {
         </section>
 
         {/* 섹션 6: 최종 CTA + 푸터 */}
-        <section className="snap-section bg-black text-white">
-          <div className="h-full flex flex-col">
+        <section className="snap-section relative overflow-hidden bg-black text-white">
+          {/* 어두운 그라디언트 오버레이 */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black z-0"></div>
+
+          {/* 배경 이미지 전환 효과 - 더 어둡게 */}
+          <div className="absolute inset-0 z-0">
+            {['/images/landing/main1.png', '/images/landing/main2.png', '/images/landing/main3.png'].map((image, index) => (
+              <div
+                key={`cta-${index}`}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  currentHeroImage === index ? 'opacity-10' : 'opacity-0'
+                }`}
+              >
+                <Image
+                  src={image}
+                  alt={`MockOps CTA Background ${index + 1}`}
+                  fill
+                  className="object-cover object-top"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="relative z-10 h-full flex flex-col">
             {/* 메인 CTA 영역 */}
             <div className="flex-1 flex items-center justify-center px-6">
               <div className="text-center max-w-4xl">
@@ -408,12 +492,14 @@ export default function LandingPage() {
               <div className="max-w-7xl mx-auto px-6">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
                   <div>
-                    © 2024 MockOps. All rights reserved.
+                    © 2025 MockOps. All rights reserved.
                   </div>
-                  <div className="flex gap-6">
+                  <div className="flex gap-6 items-center">
                     <a href="#" className="hover:text-white transition-colors">이용약관</a>
                     <a href="#" className="hover:text-white transition-colors">개인정보처리방침</a>
-                    <a href="#" className="hover:text-white transition-colors">문의하기</a>
+                    <a href="mailto:contact.mockops@gmail.com" className="hover:text-white transition-colors">
+                      contact.mockops@gmail.com
+                    </a>
                   </div>
                 </div>
               </div>
@@ -423,16 +509,11 @@ export default function LandingPage() {
       </main>
 
       <style jsx>{`
-        .scroll-container {
-          height: 100vh;
-          overflow-y: scroll;
-          scroll-behavior: smooth;
-        }
-
         .snap-container {
           scroll-snap-type: y mandatory;
           height: 100vh;
           overflow-y: scroll;
+          scroll-behavior: smooth;
         }
 
         .snap-section {
@@ -441,7 +522,58 @@ export default function LandingPage() {
           height: 100vh;
           min-height: 100vh;
         }
+
+        /* 페이드 인 애니메이션 */
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fade-in-up {
+          animation: fadeInUp 1s ease-out forwards;
+        }
+
+        .animation-delay-200 {
+          animation-delay: 0.2s;
+          opacity: 0;
+        }
+
+        /* Hero 텍스트 섹션 스케일 효과 */
+        .hero-text-section {
+          animation: sectionFadeIn 0.8s ease-out;
+        }
+
+        @keyframes sectionFadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        /* 헤더 슬라이드 다운 애니메이션 */
+        .animate-slide-down {
+          animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+          from {
+            transform: translateY(-100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
       `}</style>
-    </div>
+    </>
   );
 }

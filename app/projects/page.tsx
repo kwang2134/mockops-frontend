@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import { getProjects, createProject } from '@/lib/api/projects';
 import type { Project } from '@/types/project';
@@ -94,10 +95,10 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
-      <main className="pt-24 pb-16">
+      <main className="flex-1 pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-6">
           {/* 페이지 헤더 */}
           <div className="mb-8">
@@ -369,6 +370,7 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 }
