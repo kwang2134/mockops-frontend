@@ -795,6 +795,7 @@ function MockApisTab({ serverId, projectId, userRole }: { serverId: number; proj
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [checkingJob, setCheckingJob] = useState(true);
+  const [showSlashInfoModal, setShowSlashInfoModal] = useState(false);
 
   // DEVELOPER 이상 권한 체크
   const canManageMockApis = userRole === 'DEVELOPER' || userRole === 'MANAGER' || userRole === 'OWNER';
@@ -920,6 +921,39 @@ function MockApisTab({ serverId, projectId, userRole }: { serverId: number; proj
           )}
         </div>
       )}
+
+      {/* API 사용 가이드 */}
+      <div className="mb-8 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          API 사용 방법
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 mb-2">Base URL</p>
+            <div className="bg-white rounded-lg p-4 font-mono text-sm border border-gray-200">
+              https://api.mockops.cloud/mock/{projectId}/도메인명/
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-yellow-900 mb-2 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              주의사항
+            </p>
+            <ul className="text-sm text-yellow-800 space-y-1 ml-7">
+              <li>• <code className="bg-yellow-100 px-1 rounded">mockops.cloud</code>가 아닌 <code className="bg-yellow-100 px-1 rounded font-semibold">api.mockops.cloud</code>로 요청하세요</li>
+              <li>• 엔드포인트 경로의 마지막 슬래시(/)를 일관되게 사용하세요</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
 
       {mockApiGroups.length === 0 ? (
         <div className="text-center py-12 text-gray-600">
@@ -1064,6 +1098,7 @@ function MockApisTab({ serverId, projectId, userRole }: { serverId: number; proj
       {showDetailModal && selectedMockApi && (
         <MockApiDetailModal
           mockApi={selectedMockApi}
+          projectId={projectId}
           onClose={() => {
             setShowDetailModal(false);
             setSelectedMockApi(null);
@@ -1141,6 +1176,54 @@ function CreateMockApiModal({
     isActive: true,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showSlashInfoModal, setShowSlashInfoModal] = useState(false);
+
+  const handleJsonKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+
+      // Get the current line
+      const beforeCursor = value.substring(0, start);
+      const currentLineStart = beforeCursor.lastIndexOf('\n') + 1;
+      const currentLine = beforeCursor.substring(currentLineStart);
+
+      // Calculate indent
+      const indent = currentLine.match(/^\s*/)?.[0] || '';
+      const lastChar = beforeCursor.trim().slice(-1);
+
+      // Add extra indent after opening braces
+      const extraIndent = (lastChar === '{' || lastChar === '[') ? '  ' : '';
+
+      // Insert newline with indent
+      const newText = value.substring(0, start) + '\n' + indent + extraIndent + value.substring(end);
+
+      textarea.value = newText;
+      textarea.selectionStart = textarea.selectionEnd = start + 1 + indent.length + extraIndent.length;
+
+      // Trigger onChange
+      const event = new Event('input', { bubbles: true });
+      textarea.dispatchEvent(event);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+
+      // Insert 2 spaces
+      const newText = value.substring(0, start) + '  ' + value.substring(end);
+      textarea.value = newText;
+      textarea.selectionStart = textarea.selectionEnd = start + 2;
+
+      // Trigger onChange
+      const event = new Event('input', { bubbles: true });
+      textarea.dispatchEvent(event);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1228,8 +1311,18 @@ function CreateMockApiModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              엔드포인트 경로 *
+            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              엔드포인트 *
+              <button
+                type="button"
+                onClick={() => setShowSlashInfoModal(true)}
+                className="text-blue-600 hover:text-blue-800"
+                title="슬래시 사용 팁"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
             </label>
             <input
               type="text"
@@ -1251,6 +1344,7 @@ function CreateMockApiModal({
             <textarea
               value={formData.responseBody}
               onChange={(e) => setFormData({ ...formData, responseBody: e.target.value })}
+              onKeyDown={handleJsonKeyDown}
               rows={10}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 font-mono text-sm"
               placeholder='{"message": "success"}'
@@ -1285,6 +1379,31 @@ function CreateMockApiModal({
             </button>
           </div>
         </form>
+
+        {showSlashInfoModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowSlashInfoModal(false)}>
+            <div className="bg-white rounded-xl p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold mb-4">엔드포인트 슬래시 사용 팁</h3>
+              <div className="space-y-3 text-sm text-gray-700">
+                <p>• <strong>시작 슬래시</strong>: 항상 <code className="bg-gray-100 px-1 rounded">/</code>로 시작하세요</p>
+                <p>• <strong>마지막 슬래시</strong>: 포함 여부를 선택할 수 있지만, 프로젝트 전체에서 일관되게 사용하세요</p>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
+                  <p className="font-semibold mb-2">예시:</p>
+                  <p className="font-mono text-xs mb-1">✅ /product/</p>
+                  <p className="font-mono text-xs mb-1">✅ /product</p>
+                  <p className="font-mono text-xs mb-1">❌ product (시작 슬래시 없음)</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">💡 마지막 슬래시를 포함하면 모든 API 요청에도 슬래시를 포함해야 합니다</p>
+              </div>
+              <button
+                onClick={() => setShowSlashInfoModal(false)}
+                className="mt-4 w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1309,6 +1428,54 @@ function EditMockApiModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string>('');
+  const [showSlashInfoModal, setShowSlashInfoModal] = useState(false);
+
+  const handleJsonKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+
+      // Get the current line
+      const beforeCursor = value.substring(0, start);
+      const currentLineStart = beforeCursor.lastIndexOf('\n') + 1;
+      const currentLine = beforeCursor.substring(currentLineStart);
+
+      // Calculate indent
+      const indent = currentLine.match(/^\s*/)?.[0] || '';
+      const lastChar = beforeCursor.trim().slice(-1);
+
+      // Add extra indent after opening braces
+      const extraIndent = (lastChar === '{' || lastChar === '[') ? '  ' : '';
+
+      // Insert newline with indent
+      const newText = value.substring(0, start) + '\n' + indent + extraIndent + value.substring(end);
+
+      textarea.value = newText;
+      textarea.selectionStart = textarea.selectionEnd = start + 1 + indent.length + extraIndent.length;
+
+      // Trigger onChange
+      const event = new Event('input', { bubbles: true });
+      textarea.dispatchEvent(event);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+
+      // Insert 2 spaces
+      const newText = value.substring(0, start) + '  ' + value.substring(end);
+      textarea.value = newText;
+      textarea.selectionStart = textarea.selectionEnd = start + 2;
+
+      // Trigger onChange
+      const event = new Event('input', { bubbles: true });
+      textarea.dispatchEvent(event);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1397,8 +1564,18 @@ function EditMockApiModal({
           </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              엔드포인트 경로 *
+            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              엔드포인트 *
+              <button
+                type="button"
+                onClick={() => setShowSlashInfoModal(true)}
+                className="text-blue-600 hover:text-blue-800"
+                title="슬래시 사용 팁"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
             </label>
             <input
               type="text"
@@ -1419,6 +1596,7 @@ function EditMockApiModal({
             <textarea
               value={formData.responseBody}
               onChange={(e) => setFormData({ ...formData, responseBody: e.target.value })}
+              onKeyDown={handleJsonKeyDown}
               rows={10}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 font-mono text-sm"
             />
@@ -1440,6 +1618,31 @@ function EditMockApiModal({
             </button>
           </div>
         </form>
+
+        {showSlashInfoModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowSlashInfoModal(false)}>
+            <div className="bg-white rounded-xl p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold mb-4">엔드포인트 슬래시 사용 팁</h3>
+              <div className="space-y-3 text-sm text-gray-700">
+                <p>• <strong>시작 슬래시</strong>: 항상 <code className="bg-gray-100 px-1 rounded">/</code>로 시작하세요</p>
+                <p>• <strong>마지막 슬래시</strong>: 포함 여부를 선택할 수 있지만, 프로젝트 전체에서 일관되게 사용하세요</p>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
+                  <p className="font-semibold mb-2">예시:</p>
+                  <p className="font-mono text-xs mb-1">✅ /product/</p>
+                  <p className="font-mono text-xs mb-1">✅ /product</p>
+                  <p className="font-mono text-xs mb-1">❌ product (시작 슬래시 없음)</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">💡 마지막 슬래시를 포함하면 모든 API 요청에도 슬래시를 포함해야 합니다</p>
+              </div>
+              <button
+                onClick={() => setShowSlashInfoModal(false)}
+                className="mt-4 w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1448,10 +1651,12 @@ function EditMockApiModal({
 // Mock API 상세 모달
 function MockApiDetailModal({
   mockApi,
+  projectId,
   onClose,
   onEdit,
 }: {
   mockApi: MockApi;
+  projectId: number;
   onClose: () => void;
   onEdit: () => void;
 }) {
@@ -1534,6 +1739,15 @@ function MockApiDetailModal({
             <p className="text-gray-900 font-mono text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
               {mockApi.fullEndpoint}
             </p>
+          </div>
+
+          {/* 실제 호출 URL */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-blue-900 mb-2">실제 호출 URL</p>
+            <div className="bg-white rounded p-3 font-mono text-sm break-all border border-blue-300">
+              {mockApi.httpMethod} https://api.mockops.cloud/mock/{projectId}/도메인명{mockApi.endpointPath}
+            </div>
+            <p className="text-xs text-blue-700 mt-2">이 URL로 실제 API 요청을 보내시면 됩니다</p>
           </div>
 
           {/* 응답 본문 (JSON 포맷팅) */}
