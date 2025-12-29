@@ -1,74 +1,74 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, {AxiosError, InternalAxiosRequestConfig} from 'axios';
 
 // API 클라이언트 설정
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
-  withCredentials: true, // 쿠키 자동 포함 (Refresh Token)
-  headers: {
-    'Content-Type': 'application/json',
-  },
+    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+    withCredentials: true, // 쿠키 자동 포함 (Refresh Token)
+    headers: {
+        'Content-Type': 'application/json',
+    },
 });
 
 // Refresh 중복 방지를 위한 변수
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (value?: any) => void;
-  reject: (reason?: any) => void;
+    resolve: (value?: any) => void;
+    reject: (reason?: any) => void;
 }> = [];
 
 const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
+    failedQueue.forEach((prom) => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
 
-  failedQueue = [];
+    failedQueue = [];
 };
 
 // Request Interceptor: Access Token 추가
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // 클라이언트 사이드에서만 localStorage 접근
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    (config: InternalAxiosRequestConfig) => {
+        // 클라이언트 사이드에서만 localStorage 접근
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('accessToken');
+            if (token && config.headers) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
     }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
 );
 
 // 로그아웃 처리 헬퍼 함수 (circular dependency 방지)
 const handleTokenExpiration = async () => {
-  if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
-  try {
-    // 백엔드에 로그아웃 요청하여 쿠키의 Refresh Token 만료 처리
-    await axios.post(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/v1/auth/logout`,
-      {},
-      { withCredentials: true }
-    );
-  } catch (error) {
-    console.error('Logout API call failed:', error);
-  } finally {
-    // Access Token 제거
-    localStorage.removeItem('accessToken');
+    try {
+        // 백엔드에 로그아웃 요청하여 쿠키의 Refresh Token 만료 처리
+        await axios.post(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/v1/auth/logout`,
+            {},
+            {withCredentials: true}
+        );
+    } catch (error) {
+        console.error('Logout API call failed:', error);
+    } finally {
+        // Access Token 제거
+        localStorage.removeItem('accessToken');
 
-    // 로그인 페이지로 리다이렉트 (로그인/OAuth 관련 페이지가 아닌 경우)
-    if (!window.location.pathname.startsWith('/login') &&
-        !window.location.pathname.startsWith('/oauth2/callback') &&
-        window.location.pathname !== '/') {
-      window.location.href = '/login';
+        // 로그인 페이지로 리다이렉트 (로그인/OAuth 관련 페이지가 아닌 경우)
+        if (!window.location.pathname.startsWith('/login') &&
+            !window.location.pathname.startsWith('/oauth2/callback') &&
+            window.location.pathname !== '/') {
+            window.location.href = '/login';
+        }
     }
-  }
 };
 
 // Response Interceptor: 토큰 갱신 및 에러 처리
@@ -166,16 +166,16 @@ export default api;
 
 // 응답 타입 정의
 export interface ApiResponse<T> {
-  success: boolean;
-  result: T;
-  timestamp: string;
+    success: boolean;
+    result: T;
+    timestamp: string;
 }
 
 export interface ApiError {
-  success: false;
-  error: {
-    code: string;
-    message: string;
-  };
-  timestamp: string;
+    success: false;
+    error: {
+        code: string;
+        message: string;
+    };
+    timestamp: string;
 }
