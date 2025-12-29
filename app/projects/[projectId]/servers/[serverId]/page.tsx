@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 import { useAuth } from '@/hooks/useAuth';
 import { useJobPolling } from '@/hooks/useJobPolling';
 import { getProject } from '@/lib/api/projects';
-import { getServer, updateServer, deleteServer } from '@/lib/api/servers';
+import { getServer, updateServer, deleteServer, getServerMembers, joinServer, leaveServer } from '@/lib/api/servers';
 import {
   getMockApis,
   getMockApi,
@@ -36,12 +36,13 @@ import type {
   HttpMethod,
   Job,
   JobStatus,
+  ServerMember,
 } from '@/types/server';
 import type { HealthCheckFailureLog } from '@/lib/api/notifications';
 import { formatDateTimeKST } from '@/lib/utils/date';
 import { getNotificationTypeLabel } from '@/lib/utils/notification';
 
-type Tab = 'mock-apis' | 'health-check';
+type Tab = 'mock-apis' | 'health-check' | 'members';
 
 export default function ServerDetailPage() {
   const router = useRouter();
@@ -202,6 +203,7 @@ export default function ServerDetailPage() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'mock-apis', label: 'Mock API' },
     { id: 'health-check', label: '헬스 체크' },
+    { id: 'members', label: '담당 멤버' },
   ];
 
   return (
@@ -349,6 +351,7 @@ export default function ServerDetailPage() {
           <div>
             {activeTab === 'mock-apis' && <MockApisTab serverId={serverId} projectId={projectId} userRole={userRole} />}
             {activeTab === 'health-check' && <HealthCheckTab serverId={serverId} />}
+            {activeTab === 'members' && <ServerMembersTab serverId={serverId} userRole={userRole} />}
           </div>
         </div>
       </main>
@@ -2047,6 +2050,189 @@ function HealthCheckTab({ serverId }: { serverId: number }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 담당 멤버 탭
+function ServerMembersTab({ serverId, userRole }: { serverId: number; userRole: MemberRole }) {
+  const [members, setMembers] = useState<ServerMember[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasNext, setHasNext] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [myDomainServerId, setMyDomainServerId] = useState<number | null>(null);
+  const [isParticipating, setIsParticipating] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const canManage = userRole === 'DEVELOPER' || userRole === 'MANAGER' || userRole === 'OWNER';
+
+  useEffect(() => {
+    loadMembers();
+  }, [serverId]);
+
+  const loadMembers = async (appendMode = false) => {
+    try {
+      setLoading(true);
+      const data = await getServerMembers(serverId, 20, appendMode ? nextOffset || 0 : 0);
+
+      if (appendMode) {
+        setMembers(prev => [...prev, ...data.members]);
+      } else {
+        setMembers(data.members);
+      }
+
+      setHasNext(data.hasNext);
+      setNextOffset(data.nextOffset);
+      setMyDomainServerId(data.myDomainServerId);
+      setIsParticipating(data.isParticipating);
+    } catch (error) {
+      console.error('Failed to load members:', error);
+      alert('멤버 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    try {
+      setActionLoading(true);
+      await joinServer(serverId);
+      alert('도메인 서버에 참여했습니다.');
+      loadMembers();
+    } catch (error: any) {
+      console.error('Failed to join server:', error);
+      if (error.response?.status === 400) {
+        alert('이미 다른 도메인 서버에 참여 중입니다.');
+      } else if (error.response?.status === 403) {
+        alert('DEVELOPER 이상만 도메인 서버에 참여할 수 있습니다.');
+      } else {
+        alert('참여에 실패했습니다.');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!confirm('정말 이 도메인 서버에서 나가시겠습니까?')) return;
+
+    try {
+      setActionLoading(true);
+      await leaveServer(serverId);
+      alert('도메인 서버에서 나갔습니다.');
+      loadMembers();
+    } catch (error: any) {
+      console.error('Failed to leave server:', error);
+      if (error.response?.status === 400) {
+        alert('해당 도메인 서버에 참여하고 있지 않습니다.');
+      } else {
+        alert('나가기에 실패했습니다.');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'OWNER':
+        return 'bg-purple-100 text-purple-800';
+      case 'MANAGER':
+        return 'bg-blue-100 text-blue-800';
+      case 'DEVELOPER':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div>
+      {/* Action Button Section */}
+      <div className="mb-6">
+        {canManage && myDomainServerId === null && (
+          <button
+            onClick={handleJoin}
+            disabled={actionLoading}
+            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {actionLoading ? '처리 중...' : '참여하기'}
+          </button>
+        )}
+
+        {canManage && isParticipating && (
+          <button
+            onClick={handleLeave}
+            disabled={actionLoading}
+            className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {actionLoading ? '처리 중...' : '나가기'}
+          </button>
+        )}
+
+        {canManage && myDomainServerId !== null && !isParticipating && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-yellow-800 font-medium">이미 다른 도메인 서버에 참여 중입니다</p>
+            <p className="text-yellow-700 text-sm mt-1">한 번에 하나의 도메인 서버만 담당할 수 있습니다.</p>
+          </div>
+        )}
+
+        {!canManage && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-gray-700 font-medium">조회만 가능합니다</p>
+            <p className="text-gray-600 text-sm mt-1">DEVELOPER 이상만 도메인 서버에 참여할 수 있습니다.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Members List */}
+      {loading && members.length === 0 ? (
+        <div className="text-center py-10 text-gray-600">로딩 중...</div>
+      ) : members.length === 0 ? (
+        <div className="text-center py-10 text-gray-600">
+          아직 담당 멤버가 없습니다
+        </div>
+      ) : (
+        <div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">프로젝트 닉네임</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">역할</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {members.map(member => (
+                  <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{member.projectNickname}</div>
+                      <div className="text-sm text-gray-500">({member.nickname})</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getRoleBadgeColor(member.memberRole)}`}>
+                        {member.memberRole}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {hasNext && (
+            <div className="text-center mt-6">
+              <button
+                onClick={() => loadMembers(true)}
+                disabled={loading}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                {loading ? '로딩 중...' : '더 보기'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

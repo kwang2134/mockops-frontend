@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
-import { getProjects, createProject } from '@/lib/api/projects';
+import { searchProjects, createProject } from '@/lib/api/projects';
 import type { Project } from '@/types/project';
 import { formatDateKST } from '@/lib/utils/date';
+
+type SearchType = 'NAME' | 'OWNER' | 'BOTH';
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -24,6 +26,13 @@ export default function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const [showWebhookSecretModal, setShowWebhookSecretModal] = useState(false);
   const [webhookSecret, setWebhookSecret] = useState<string>('');
+
+  // 검색 상태
+  // 검색 상태
+  // 검색 상태
+  const [searchType, setSearchType] = useState<SearchType>('NAME');
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
 
   // 로그인 체크
   useEffect(() => {
@@ -43,13 +52,29 @@ export default function ProjectsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getProjects(0, 20);
+      const response = await searchProjects(
+        currentPage,
+        20,
+        (searchType === 'NAME' || searchType === 'BOTH') ? searchKeyword : undefined,
+        (searchType === 'OWNER' || searchType === 'BOTH') ? searchKeyword : undefined
+      );
       setProjects(response.data);
     } catch (err: any) {
       console.error('Failed to load projects:', err);
       setError(err.response?.data?.message || '프로젝트 목록을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    setCurrentPage(0); // 검색 시 페이지 리셋
+    loadProjects();
+  };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
 
@@ -117,6 +142,41 @@ export default function ProjectsPage() {
             </div>
           )}
 
+          {/* 검색 바 */}
+          <div className="mb-6 flex gap-3">
+            {/* 검색 타입 선택 */}
+            <select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value as SearchType)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent min-w-[140px]"
+            >
+              <option value="NAME">프로젝트 제목</option>
+              <option value="OWNER">PO 닉네임</option>
+              <option value="BOTH">제목 + 닉네임</option>
+            </select>
+
+            {/* 검색 입력 필드 */}
+            <input
+              type="text"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+              placeholder={
+                searchType === 'NAME' ? "프로젝트 이름 검색..." :
+                  searchType === 'OWNER' ? "생성자 닉네임 검색..." :
+                    "제목 또는 닉네임 검색..."
+              }
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+            />
+
+            <button
+              onClick={handleSearch}
+              className="px-6 py-2 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all whitespace-nowrap"
+            >
+              검색
+            </button>
+          </div>
+
           {/* 프로젝트 생성 버튼 */}
           <div className="mb-8">
             <button
@@ -146,17 +206,19 @@ export default function ProjectsPage() {
                 </svg>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                아직 프로젝트가 없습니다
+                {searchKeyword ? '검색 결과가 없습니다' : '아직 프로젝트가 없습니다'}
               </h3>
               <p className="text-gray-600 mb-6">
-                첫 프로젝트를 생성하여 Mock API 관리를 시작하세요
+                {searchKeyword ? '다른 검색어로 시도해보세요' : '첫 프로젝트를 생성하여 Mock API 관리를 시작하세요'}
               </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="px-8 py-3 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all duration-200 hover:shadow-lg"
-              >
-                프로젝트 만들기
-              </button>
+              {!searchKeyword && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-8 py-3 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all duration-200 hover:shadow-lg"
+                >
+                  프로젝트 만들기
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

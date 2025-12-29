@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 import { useAuth } from '@/hooks/useAuth';
 import { getProject, updateProject, deleteProject } from '@/lib/api/projects';
 import { getServers, createServer } from '@/lib/api/servers';
-import { getMembers, updateMemberRole, removeMember } from '@/lib/api/members';
+import { getMembers, updateMemberRole, removeMember, getMyMemberInfo, updateMyNickname } from '@/lib/api/members';
 import { getInvitations, createInvitation, cancelInvitation } from '@/lib/api/invitations';
 import { getCorsOrigins, addCorsOrigin, deleteCorsOrigin } from '@/lib/api/cors';
 import { getWebhookSecret, reissueWebhookSecret, deactivateWebhookSecret, generateWebhookToken } from '@/lib/api/webhooks';
@@ -169,6 +169,11 @@ function ServersTab({ projectId, userRole }: { projectId: number; userRole: Memb
   const [urlPath, setUrlPath] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // 검색 상태
+  const [searchName, setSearchName] = useState('');
+  const [searchStatus, setSearchStatus] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+
   // DEVELOPER 이상 권한 체크
   const canManageServers = userRole === 'DEVELOPER' || userRole === 'MANAGER' || userRole === 'OWNER';
 
@@ -179,12 +184,29 @@ function ServersTab({ projectId, userRole }: { projectId: number; userRole: Memb
   const loadServers = async () => {
     try {
       setLoading(true);
-      const response = await getServers(projectId);
+      const response = await getServers(
+        projectId,
+        currentPage,
+        20,
+        searchName,
+        searchStatus
+      );
       setServers(response.content);
     } catch (error) {
       console.error('Failed to load servers:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    setCurrentPage(0); // 검색 시 페이지를 0으로 초기화
+    loadServers();
+  };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
 
@@ -221,6 +243,34 @@ function ServersTab({ projectId, userRole }: { projectId: number; userRole: Memb
 
   return (
     <div>
+      {/* 검색 UI */}
+      <div className="mb-6 flex gap-3">
+        <input
+          type="text"
+          value={searchName}
+          onChange={(e) => setSearchName(e.target.value)}
+          placeholder="서버 이름 검색..."
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onKeyPress={handleSearchKeyPress}
+        />
+        <select
+          value={searchStatus}
+          onChange={(e) => setSearchStatus(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">전체 상태</option>
+          <option value="MOCKING">MOCKING</option>
+          <option value="PROXYING">PROXYING</option>
+          <option value="DOWN">DOWN</option>
+        </select>
+        <button
+          onClick={handleSearch}
+          className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all"
+        >
+          검색
+        </button>
+      </div>
+
       {canManageServers && (
         <div className="mb-6">
           <button
@@ -366,6 +416,120 @@ function ServersTab({ projectId, userRole }: { projectId: number; userRole: Memb
   );
 }
 
+// 내 멤버 정보 컴포넌트
+function MyMemberInfo({ projectId }: { projectId: number }) {
+  const [myInfo, setMyInfo] = useState<ProjectMember | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newNickname, setNewNickname] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadMyInfo();
+  }, [projectId]);
+
+  const loadMyInfo = async () => {
+    try {
+      const data = await getMyMemberInfo(projectId);
+      setMyInfo(data);
+      setNewNickname(data.projectNickname);
+    } catch (error) {
+      console.error('Failed to load my member info:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!newNickname || newNickname.trim().length === 0) {
+      alert('프로젝트 닉네임은 필수입니다');
+      return;
+    }
+    if (newNickname.trim().length > 50) {
+      alert('1자 이상 50자 이하여야 합니다');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await updateMyNickname(projectId, newNickname.trim());
+      await loadMyInfo();
+      setIsEditing(false);
+      alert('닉네임이 변경되었습니다');
+    } catch (error: any) {
+      alert(error.response?.data?.error?.message || '닉네임 변경에 실패했습니다');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!myInfo) {
+    return <div className="text-gray-600">로딩 중...</div>;
+  }
+
+  return (
+    <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
+      <h3 className="text-lg font-bold mb-4">내 멤버 정보</h3>
+
+      {isEditing ? (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">프로젝트 닉네임</label>
+            <input
+              type="text"
+              value={newNickname}
+              onChange={(e) => setNewNickname(e.target.value)}
+              maxLength={50}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="프로젝트 닉네임"
+            />
+            <div className="text-xs text-gray-500 mt-1">{newNickname.length}/50</div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? '저장 중...' : '저장'}
+            </button>
+            <button
+              onClick={() => {
+                setIsEditing(false);
+                setNewNickname(myInfo.projectNickname);
+              }}
+              className="px-4 py-2 bg-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-400"
+              disabled={loading}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-lg font-semibold text-gray-900">{myInfo.projectNickname}</p>
+            <p className="text-sm text-gray-600">서비스 닉네임: {myInfo.nickname}</p>
+            <p className="text-sm text-gray-600 mt-1">
+              역할: <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                myInfo.memberRole === 'OWNER' ? 'bg-purple-100 text-purple-800' :
+                myInfo.memberRole === 'MANAGER' ? 'bg-blue-100 text-blue-800' :
+                myInfo.memberRole === 'DEVELOPER' ? 'bg-green-100 text-green-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {myInfo.memberRole}
+              </span>
+            </p>
+          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-4 py-2 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800"
+          >
+            닉네임 수정
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 팀원 탭
 function MembersTab({ projectId, userRole }: { projectId: number; userRole: MemberRole }) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -440,16 +604,23 @@ function MembersTab({ projectId, userRole }: { projectId: number; userRole: Memb
 
   return (
     <div>
+      {/* 내 멤버 정보를 상단에 표시 */}
+      <MyMemberInfo projectId={projectId} />
+
+      {/* 팀원 목록 제목 */}
+      <h3 className="text-lg font-bold mb-4">팀원 목록</h3>
+
       {members.length === 0 ? (
         <div className="text-center py-12 text-gray-600">
-          팀원이 없습니다.
+          다른 팀원이 없습니다.
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">닉네임</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">프로젝트 닉네임</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">서비스 닉네임</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">역할</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">작업</th>
               </tr>
@@ -457,7 +628,8 @@ function MembersTab({ projectId, userRole }: { projectId: number; userRole: Memb
             <tbody className="divide-y divide-gray-200">
               {members.map((member) => (
                 <tr key={member.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{member.nickname}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{member.projectNickname}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">({member.nickname})</td>
                   <td className="px-6 py-4">
                     {editingMemberId === member.id ? (
                       <div className="flex items-center gap-2">
@@ -1036,6 +1208,17 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
             </div>
 
             <div className="space-y-6">
+                {/* 주의사항: 가장 먼저 읽어야 하므로 상단 배치 또는 강조 */}
+                <div className="p-4 bg-orange-50 border-l-4 border-orange-400 rounded-r-lg">
+                    <div className="flex items-center mb-1">
+                        <span className="text-orange-700 font-bold text-sm">⚠️ 호출 시점 주의사항</span>
+                    </div>
+                    <p className="text-sm text-orange-800 leading-relaxed">
+                        웹훅은 반드시 배포 스크립트의 <strong>최하단(서버 실행 명령어 이후)</strong>에 위치해야 합니다.
+                        서버가 완전히 구동되기 전에 호출될 경우 헬스 체크가 실패할 수 있습니다.
+                    </p>
+                </div>
+
               {/* 프로젝트 ID */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">현재 프로젝트 ID</label>
@@ -1071,7 +1254,7 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">요청 바디 (JSON)</label>
                 <p className="text-sm text-gray-600 mb-2">
-                  <span className="font-semibold text-red-600">필수 필드</span>: projectName, domainServerName, status<br/>
+                  <span className="font-semibold text-red-600">필수 필드</span>: projectName, domainServerName, healthCheckUrl<br/>
                   <span className="font-semibold text-blue-600">선택 필드</span>: healthCheckUrl, healthCheckInterval
                 </p>
                 <div className="p-4 bg-gray-900 rounded-lg overflow-x-auto">
@@ -1079,7 +1262,6 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
 {`{
   "projectName": "내 프로젝트 이름",
   "domainServerName": "서버 이름 (slug 아님!)",
-  "status": "DEPLOYED",
   "healthCheckUrl": "https://api.example.com/health",
   "healthCheckInterval": "10m"
 }`}
@@ -1100,35 +1282,38 @@ function WebhookTab({ projectId, userRole }: { projectId: number; userRole: Memb
                     <p className="text-gray-700">상태를 변경할 도메인 서버의 이름 (slug가 아닌 실제 이름)</p>
                   </div>
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="font-semibold text-red-900 mb-1">status <span className="text-red-600">(필수)</span></p>
-                    <p className="text-gray-700 mb-2">변경할 서버 상태. 다음 중 하나를 선택:</p>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">DEPLOYED</span>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">MOCKING</span>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">PENDING</span>
-                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">ERROR</span>
-                    </div>
-                  </div>
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="font-semibold text-blue-900 mb-1">healthCheckUrl <span className="text-blue-600">(선택)</span></p>
-                    <p className="text-gray-700">헬스 체크를 수행할 URL (예: https://api.example.com/health)</p>
+                    <p className="font-semibold text-red-900 mb-1">healthCheckUrl <span className="text-red-600">(필수)</span></p>
+                    <p className="text-gray-700 mb-2">헬스 체크를 수행할 URL (예: https://api.example.com/health)</p>
                   </div>
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="font-semibold text-blue-900 mb-1">healthCheckInterval <span className="text-blue-600">(선택)</span></p>
-                    <p className="text-gray-700">헬스 체크 간격 (예: 5m, 10m, 30m, 1h)</p>
+                    <p className="text-gray-700">헬스 체크 간격 (예: 5m, 10m, 30m, 1h) 미선택 시 기본 10m</p>
                   </div>
                 </div>
               </div>
 
-              {/* 사용 예시 */}
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h4 className="text-sm font-semibold text-yellow-900 mb-2">💡 사용 예시</h4>
-                <p className="text-sm text-gray-700">
-                  배포 파이프라인(GitHub Actions, Jenkins 등)에서 배포 완료 후 이 Webhook을 호출하여
-                  서버 상태를 자동으로 DEPLOYED로 변경할 수 있습니다.
-                </p>
-              </div>
+                {/* 사용 예시: 내용을 보강하여 순서 강조 */}
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 className="text-sm font-semibold text-yellow-900 mb-2 flex items-center gap-1">
+                        <span className="text-lg">💡</span> 사용 예시 및 권장 순서
+                    </h4>
+                    <div className="space-y-2 text-sm text-gray-700">
+                        <p>
+                            GitHub Actions나 Jenkins 등 배포 파이프라인에서 <strong>애플리케이션 실행 명령어가 성공한 직후</strong>에 이 웹훅을 호출하도록 구성하세요.
+                        </p>
+                        <div className="bg-white/50 p-2 rounded border border-yellow-300 font-mono text-[12px]">
+                            1. 서버 빌드 및 배포 완료 (OK)<br/>
+                            2. 서버 실행 명령어 수행 (OK)<br/>
+                            <span className="text-blue-700 font-bold">3. MockOps Webhook 호출 (Trigger!)</span>
+                        </div>
+                        <p className="text-[12px] text-gray-500">
+                            * 서버 상태를 실시간으로 반영하기 위해 가급적 스크립트의 마지막 단계에 배치를 권장합니다.
+                        </p>
+                    </div>
+                </div>
             </div>
+
+
 
             <div className="mt-6 flex justify-end">
               <button

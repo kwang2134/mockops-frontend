@@ -54,6 +54,7 @@ export interface ProjectMember {
   id: number;
   userId: number;
   nickname: string;
+  projectNickname: string;
   memberRole: MemberRole;
 }
 

@@ -50,3 +50,27 @@ export const removeMember = async (projectId: number, memberId: number): Promise
 export const acceptInvitation = async (projectId: number, userId: number): Promise<void> => {
   await api.post(`/api/v1/projects/${projectId}/members`, { userId });
 };
+
+/**
+ * 내 멤버 정보 조회
+ */
+export const getMyMemberInfo = async (projectId: number): Promise<ProjectMember> => {
+  const response = await api.get<{ result: ProjectMember }>(
+    `/api/v1/projects/${projectId}/members/me`
+  );
+  return response.data.result;
+};
+
+/**
+ * 내 프로젝트 닉네임 수정
+ */
+export const updateMyNickname = async (
+  projectId: number,
+  projectNickname: string
+): Promise<ProjectMember> => {
+  const response = await api.patch<{ result: ProjectMember }>(
+    `/api/v1/projects/${projectId}/members/me/nickname`,
+    { projectNickname }
+  );
+  return response.data.result;
+};

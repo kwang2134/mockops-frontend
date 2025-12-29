@@ -3,6 +3,7 @@ import type {
   DomainServer, DomainServerSimple,
   DomainServerCreateRequest,
   DomainServerUpdateRequest,
+  ServerMembersResponse,
 } from '@/types/server';
 
 interface ServerListResponse {
@@ -14,17 +15,28 @@ interface ServerListResponse {
 }
 
 /**
- * 서버 목록 조회
+ * 서버 목록 조회 (검색 API 사용)
  */
 export const getServers = async (
   projectId: number,
   page: number = 0,
-  size: number = 20
+  size: number = 20,
+  name?: string,
+  status?: string
 ): Promise<ServerListResponse> => {
+  // 빈 문자열을 undefined로 변환
+  const searchName = name && name.trim() !== '' ? name.trim() : undefined;
+  const searchStatus = status && status.trim() !== '' ? status.trim() : undefined;
+
   const response = await api.get<{ result: ServerListResponse }>(
-    `/api/v1/projects/${projectId}/servers`,
+    `/api/v1/projects/${projectId}/servers/search`,
     {
-      params: { page, size },
+      params: {
+        page,
+        size,
+        name: searchName,
+        status: searchStatus,
+      },
     }
   );
   return response.data.result;
@@ -68,4 +80,35 @@ export const updateServer = async (
  */
 export const deleteServer = async (serverId: number): Promise<void> => {
   await api.delete(`/api/v1/servers/${serverId}`);
+};
+
+/**
+ * 서버 담당 멤버 목록 조회
+ */
+export const getServerMembers = async (
+  serverId: number,
+  size: number = 20,
+  offset: number = 0
+): Promise<ServerMembersResponse> => {
+  const response = await api.get<{ result: ServerMembersResponse }>(
+    `/api/v1/servers/${serverId}/members`,
+    {
+      params: { size, offset }
+    }
+  );
+  return response.data.result;
+};
+
+/**
+ * 서버 참여
+ */
+export const joinServer = async (serverId: number): Promise<void> => {
+  await api.post(`/api/v1/servers/${serverId}/members/me`);
+};
+
+/**
+ * 서버 나가기
+ */
+export const leaveServer = async (serverId: number): Promise<void> => {
+  await api.delete(`/api/v1/servers/${serverId}/members/me`);
 };

@@ -117,3 +117,20 @@ export interface Job {
 }
 
 export interface JobStatusResponse extends Job {}
+
+// Server Member 관련 타입
+export interface ServerMember {
+  id: number;
+  userId: number;
+  nickname: string;
+  projectNickname: string;
+  memberRole: string;
+}
+
+export interface ServerMembersResponse {
+  members: ServerMember[];
+  hasNext: boolean;
+  nextOffset: number | null;
+  myDomainServerId: number | null;
+  isParticipating: boolean;
+}

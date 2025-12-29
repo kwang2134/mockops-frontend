@@ -54,3 +54,32 @@ export const updateProject = async (
 export const deleteProject = async (projectId: number): Promise<void> => {
   await api.delete(`/api/v1/projects/${projectId}`);
 };
+/**
+ * 프로젝트 검색 (목록 조회용으로 사용)
+ */
+/**
+ * 프로젝트 검색 (목록 조회용으로 사용)
+ */
+export const searchProjects = async (
+  page: number = 0,
+  size: number = 20,
+  name?: string,
+  ownerNickname?: string
+): Promise<ProjectListResponse> => {
+  const params: any = { page, size };
+
+  // 빈 문자열이 아닌 경우에만 name 파라미터 추가
+  if (name && name.trim() !== '') {
+    params.name = name.trim();
+  }
+
+  // ownerNickname이 있는 경우에만 추가
+  if (ownerNickname && ownerNickname.trim() !== '') {
+    params.ownerNickname = ownerNickname.trim();
+  }
+
+  const response = await api.get<{ result: ProjectListResponse }>('/api/v1/projects/search', {
+    params,
+  });
+  return response.data.result;
+};
