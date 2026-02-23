@@ -3,6 +3,7 @@
 import {useEffect, useState} from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAgreements } from '@/lib/api/consent';
+import { acceptEmailInvitation } from '@/lib/api/invitations';
 import {refreshToken, setAccessToken} from "@/lib/auth";
 
 export default function ConsentPage() {
@@ -36,20 +37,44 @@ export default function ConsentPage() {
         }
     };
 
-    useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
+    const tryAcceptInvitation = async () => {
+        const invitationToken = sessionStorage.getItem('invitationToken');
+        if (!invitationToken) return false;
 
-        const payload = decodeJwtPayload(token);
-
-        if (
-            payload &&
-            payload.tos_agreed_version &&
-            payload.pp_agreed_version
-        ) {
-            console.log('Already agreed. Redirecting to /projects');
-            router.replace('/projects');
+        try {
+            const tokenResponse = await refreshToken();
+            setAccessToken(tokenResponse.accessToken);
+            await acceptEmailInvitation(invitationToken);
+            console.log('Invitation accepted after consent.');
+        } catch (error) {
+            console.error('Failed to accept invitation after consent:', error);
+        } finally {
+            sessionStorage.removeItem('invitationToken');
+            sessionStorage.removeItem('loginRedirect');
         }
+
+        return true;
+    };
+
+    useEffect(() => {
+        const handleAlreadyAgreed = async () => {
+            const token = localStorage.getItem('accessToken');
+            if (!token) return;
+
+            const payload = decodeJwtPayload(token);
+
+            if (
+                payload &&
+                payload.tos_agreed_version &&
+                payload.pp_agreed_version
+            ) {
+                console.log('Already agreed. Redirecting to /projects');
+                await tryAcceptInvitation();
+                router.replace('/projects');
+            }
+        };
+
+        handleAlreadyAgreed();
     }, [router]);
 
 
@@ -79,8 +104,9 @@ export default function ConsentPage() {
       alert('약관 동의가 완료되었습니다.');
       localStorage.removeItem('accessToken');
 
-      const secondTokenResponse  = await refreshToken();
-      setAccessToken(secondTokenResponse .accessToken);
+      const secondTokenResponse = await refreshToken();
+      setAccessToken(secondTokenResponse.accessToken);
+      await tryAcceptInvitation();
       router.replace('/projects');
     } catch (error) {
       console.error('Failed to submit agreements:', error);
